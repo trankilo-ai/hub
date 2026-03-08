@@ -39,12 +39,8 @@ export interface WorkspaceInvite {
 }
 
 export interface HeartbeatEntry {
-  timestamp: FirebaseFirestore.Timestamp
+  timestamp: string
   metadata: Record<string, unknown>
-}
-
-export interface HeartbeatDoc {
-  beats: HeartbeatEntry[]
 }
 
 export interface LogEntry {

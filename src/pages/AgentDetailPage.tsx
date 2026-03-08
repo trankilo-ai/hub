@@ -4,7 +4,7 @@ import { AgentfileEditor } from '../components/AgentfileEditor'
 import { VersionHistory } from '../components/VersionHistory'
 import { Playground } from '../components/Playground'
 import { PrivacyToggle } from '../components/PrivacyToggle'
-import { SDKMonitor } from '../components/SDKMonitor'
+import { HeartbeatMonitor, timeSince } from '../components/HeartbeatMonitor'
 import { AgentLog } from '../components/AgentLog'
 import { agentsApi, agentfileApi, heartbeatApi, logsApi } from '../services/api'
 import type { Agent, AgentVersion, HeartbeatEntry, LogEntry, Role } from '../types'
@@ -115,10 +115,38 @@ export function AgentDetailPage() {
     )
   }
 
-  const tabs: { id: Tab; label: string }[] = [
+  const heartbeatStatus: 'live' | 'dead' | 'none' = beats.length === 0
+    ? 'none'
+    : Date.now() - new Date(beats[0].timestamp).getTime() < 5 * 60_000
+      ? 'live'
+      : 'dead'
+
+  const heartbeatDotProps: Record<'live' | 'dead' | 'none', { bg: string; ping: boolean; label: string }> = {
+    live: { bg: 'bg-emerald-500', ping: true,  label: 'Live — last heartbeat within 5 minutes' },
+    dead: { bg: 'bg-red-400',     ping: false, label: `Offline — last heartbeat ${beats.length > 0 ? timeSince(beats[0].timestamp) : ''}` },
+    none: { bg: 'bg-zinc-300',    ping: false, label: 'Never sent a heartbeat' },
+  }
+
+  const tabs: { id: Tab; label: React.ReactNode }[] = [
     { id: 'editor', label: 'Agentfile' },
     { id: 'playground', label: 'Playground 🦥' },
-    { id: 'monitor', label: 'SDK Monitor' },
+    {
+      id: 'monitor',
+      label: (
+        <span className="flex items-center gap-1.5">
+          Heartbeats
+          <span
+            className="relative flex-shrink-0 w-2 h-2"
+            title={heartbeatDotProps[heartbeatStatus].label}
+          >
+            {heartbeatDotProps[heartbeatStatus].ping && (
+              <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
+            )}
+            <span className={`relative block w-2 h-2 rounded-full ${heartbeatDotProps[heartbeatStatus].bg}`} />
+          </span>
+        </span>
+      ),
+    },
     { id: 'log', label: 'Activity Log' },
   ]
 
@@ -204,8 +232,8 @@ export function AgentDetailPage() {
         )}
 
         {activeTab === 'monitor' && (
-          <div className="flex-1 border border-zinc-200 rounded-xl overflow-hidden">
-            <SDKMonitor beats={beats} />
+          <div className="flex-1 border border-zinc-200 rounded-xl overflow-hidden flex flex-col">
+            <HeartbeatMonitor beats={beats} />
           </div>
         )}
 
