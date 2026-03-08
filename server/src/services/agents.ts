@@ -66,6 +66,20 @@ export async function updateAgentVersion(id: string, version: string): Promise<v
     .update({ currentVersion: version, updatedAt: FieldValue.serverTimestamp() })
 }
 
+export async function updateAgentPlatform(id: string, platform: string): Promise<void> {
+  await getDb()
+    .collection(COLLECTION)
+    .doc(id)
+    .update({ platform, updatedAt: FieldValue.serverTimestamp() })
+}
+
+export async function updateAgentName(id: string, name: string): Promise<void> {
+  await getDb()
+    .collection(COLLECTION)
+    .doc(id)
+    .update({ name, updatedAt: FieldValue.serverTimestamp() })
+}
+
 export async function updateAgentPrivacy(
   id: string,
   privacy: 'public' | 'private',

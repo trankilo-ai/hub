@@ -6,6 +6,7 @@ import { workspacesApi, agentsApi } from '../services/api'
 import { useAuthStore } from '../store/auth'
 import type { Workspace, Agent, Role } from '../types'
 import logo from '../assets/logo.png'
+import { PLATFORMS } from '../constants'
 
 export function WorkspacePage() {
   const { workspaceId } = useParams<{ workspaceId: string }>()
@@ -20,8 +21,6 @@ export function WorkspacePage() {
   const [newAgentPlatformOther, setNewAgentPlatformOther] = useState('')
   const [newAgentPrivacy, setNewAgentPrivacy] = useState<'private' | 'public'>('private')
   const [creating, setCreating] = useState(false)
-
-  const PLATFORMS = ['LangChain', 'LangGraph', 'CrewAI', 'AutoGen', 'OpenAI Assistants', 'Vertex AI', 'Bedrock', 'Hugging Face', 'Custom', 'Other']
 
   const currentRole: Role = workspace && user
     ? (workspace.members[user.uid] ?? 'Viewer')

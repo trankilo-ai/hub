@@ -11,6 +11,7 @@ import {
   updateAgentPrivacy,
   addAgentVersion,
 } from '../services/agents'
+
 import { uploadAgentfile } from '../services/gcs'
 import { appendLog } from '../services/logs'
 
@@ -70,7 +71,7 @@ router.post(
       ownerId: req.user!.uid,
     })
 
-    const initialContent = `agent "${name}" {\n  version      = "0.0.1"\n  model        = "gpt-4o"\n  instructions = ""\n  tools        = []\n  skills       = []\n}\n`
+    const initialContent = `agent "${name}" {\n  version      = "0.0.1"\n  platform     = "${platform ?? ''}"\n  model        = "gpt-4o"\n  instructions = ""\n  tools        = []\n  skills       = []\n}\n`
     try {
       await uploadAgentfile(agent.id, '0.0.1', initialContent)
       await addAgentVersion(agent.id, '0.0.1', req.user!.email ?? req.user!.uid)
@@ -101,6 +102,22 @@ router.delete(
     })
     await deleteAgent(req.params.id)
     res.status(204).send()
+  },
+)
+
+router.patch(
+  '/:id/privacy',
+  authMiddleware,
+  requireAgentWorkspaceRole('Editor'),
+  async (req, res) => {
+    const { privacy } = req.body as { privacy?: 'public' | 'private' }
+    if (privacy !== 'public' && privacy !== 'private') {
+      res.status(400).json({ message: 'privacy must be public or private' })
+      return
+    }
+    await updateAgentPrivacy(req.params.id, privacy)
+    const agent = await getAgent(req.params.id)
+    res.json(agent)
   },
 )
 

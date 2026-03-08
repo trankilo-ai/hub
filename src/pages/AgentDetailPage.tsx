@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { AgentfileEditor } from '../components/AgentfileEditor'
 import { VersionHistory } from '../components/VersionHistory'
 import { Playground } from '../components/Playground'
@@ -13,6 +13,7 @@ type Tab = 'editor' | 'playground' | 'monitor' | 'log'
 
 export function AgentDetailPage() {
   const { workspaceId, agentId } = useParams<{ workspaceId: string; agentId: string }>()
+  const navigate = useNavigate()
   const [agent, setAgent] = useState<Agent | null>(null)
   const [agentfileContent, setAgentfileContent] = useState('')
   const [versions, setVersions] = useState<AgentVersion[]>([])
@@ -21,7 +22,37 @@ export function AgentDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('editor')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(null)
+  const [agentfileDirty, setAgentfileDirty] = useState(false)
+  const [privacyDirty, setPrivacyDirty] = useState(false)
+  const isPageDirty = agentfileDirty || privacyDirty
+  const isPageDirtyRef = useRef(isPageDirty)
+
+  useEffect(() => { isPageDirtyRef.current = isPageDirty }, [isPageDirty])
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isPageDirtyRef.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
+  useEffect(() => {
+    if (!isPageDirty) return
+    window.history.pushState({ guardDirty: true }, '', window.location.href)
+    const handlePopState = () => {
+      if (!isPageDirtyRef.current) return
+      if (window.confirm('You have unpublished changes. Leave anyway?')) {
+        window.history.back()
+      } else {
+        window.history.pushState({ guardDirty: true }, '', window.location.href)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [isPageDirty])
 
   const currentRole: Role = 'Editor' as Role
 
@@ -50,29 +81,23 @@ export function AgentDetailPage() {
 
   useEffect(() => { load() }, [agentId])
 
-  async function handleSave(content: string) {
-    if (!agentId) return
+  async function handlePublish(content: string) {
+    if (!agentId || !agent) return
     await agentfileApi.save(agentId, content)
     setAgentfileContent(content)
-    const vers = await agentfileApi.versions(agentId)
-    setVersions(vers)
-    const a = await agentsApi.get(agentId)
-    setAgent(a)
-  }
-
-  async function handlePublish() {
-    if (!agentId) return
+    if (privacyDirty) await agentsApi.updatePrivacy(agentId, agent.privacy)
     await agentsApi.publish(agentId)
-    const lg = await logsApi.get(agentId)
+    const [vers, a, lg] = await Promise.all([
+      agentfileApi.versions(agentId),
+      agentsApi.get(agentId),
+      logsApi.get(agentId),
+    ])
+    setVersions(vers)
+    setAgent(a)
     setLogs(lg)
+    setPrivacyDirty(false)
   }
 
-  async function handleVersionSelect(version: string) {
-    if (!agentId) return
-    setSelectedVersion(version)
-    const { content } = await agentfileApi.getVersion(agentId, version)
-    setAgentfileContent(content)
-  }
 
   if (loading) {
     return (
@@ -102,14 +127,20 @@ export function AgentDetailPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <Link
-              to={workspaceId ? `/workspace/${workspaceId}` : '/'}
+            <button
+              onClick={() => {
+                const dest = workspaceId ? `/workspace/${workspaceId}` : '/'
+                if (!isPageDirty || window.confirm('You have unpublished changes. Leave anyway?')) {
+                  navigate(dest)
+                }
+              }}
               className="text-xs text-zinc-400 hover:text-zinc-600"
             >
               ← Back
-            </Link>
+            </button>
             <span className="text-zinc-300">/</span>
             <h1 className="text-lg font-semibold text-zinc-900">{agent.name}</h1>
+            {isPageDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unpublished changes" />}
             <span className={agent.privacy === 'public' ? 'badge-public' : 'badge-private'}>
               {agent.privacy}
             </span>
@@ -118,13 +149,16 @@ export function AgentDetailPage() {
             v{agent.currentVersion} · {agent.platform}
           </p>
         </div>
-        <PrivacyToggle
-          privacy={agent.privacy}
-          onChange={async (p) => {
-            setAgent({ ...agent, privacy: p })
-          }}
-          disabled={currentRole === 'Viewer'}
-        />
+        <div className="flex items-center gap-2">
+          <PrivacyToggle
+            privacy={agent.privacy}
+            onChange={(p) => {
+              setAgent({ ...agent, privacy: p })
+              setPrivacyDirty(true)
+            }}
+            disabled={currentRole === 'Viewer'}
+          />
+        </div>
       </div>
 
       <div className="flex border-b border-zinc-200 gap-1">
@@ -150,15 +184,14 @@ export function AgentDetailPage() {
               <AgentfileEditor
                 content={agentfileContent}
                 role={currentRole}
-                onSave={handleSave}
                 onPublish={handlePublish}
+                onDirtyChange={setAgentfileDirty}
               />
             </div>
             <div className="w-64 flex-shrink-0 border border-zinc-200 rounded-xl overflow-hidden">
               <VersionHistory
                 versions={versions}
-                currentVersion={selectedVersion ?? agent.currentVersion}
-                onSelect={handleVersionSelect}
+                currentVersion={agent.currentVersion}
               />
             </div>
           </>

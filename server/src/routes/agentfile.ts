@@ -2,13 +2,23 @@ import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import { requireAgentWorkspaceRole } from '../middleware/rbac'
 import { autoLog } from '../middleware/logger'
-import { getAgent, updateAgentVersion, addAgentVersion, listAgentVersions } from '../services/agents'
+import { getAgent, updateAgentVersion, updateAgentPlatform, updateAgentName, addAgentVersion, listAgentVersions } from '../services/agents'
 import { uploadAgentfile, downloadAgentfile } from '../services/gcs'
 
 const router = Router({ mergeParams: true })
 
 function parseVersion(hcl: string): string | null {
   const match = hcl.match(/version\s*=\s*"([^"]+)"/)
+  return match ? match[1] : null
+}
+
+function parsePlatform(hcl: string): string {
+  const match = hcl.match(/platform\s*=\s*"([^"]*)"/)
+  return match ? match[1] : ''
+}
+
+function parseName(hcl: string): string | null {
+  const match = hcl.match(/agent\s+"([^"]+)"/)
   return match ? match[1] : null
 }
 
@@ -51,9 +61,14 @@ router.put(
       return
     }
 
+    const platform = parsePlatform(content)
+    const name = parseName(content)
+
     await uploadAgentfile(agent.id, version, content)
     await addAgentVersion(agent.id, version, req.user!.email ?? req.user!.uid)
     await updateAgentVersion(agent.id, version)
+    await updateAgentPlatform(agent.id, platform)
+    if (name) await updateAgentName(agent.id, name)
 
     res.json({ version })
   },
