@@ -81,12 +81,12 @@ export function AgentDetailPage() {
 
   useEffect(() => { load() }, [agentId])
 
-  async function handlePublish(content: string) {
+  async function handlePublish(content: string, comment?: string) {
     if (!agentId || !agent) return
     await agentfileApi.save(agentId, content)
     setAgentfileContent(content)
     if (privacyDirty) await agentsApi.updatePrivacy(agentId, agent.privacy)
-    await agentsApi.publish(agentId)
+    await agentsApi.publish(agentId, comment)
     const [vers, a, lg] = await Promise.all([
       agentfileApi.versions(agentId),
       agentsApi.get(agentId),

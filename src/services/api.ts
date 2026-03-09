@@ -43,7 +43,11 @@ export const agentsApi = {
   create: (data: Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | 'currentVersion' | 'ownerId'>) =>
     request<Agent>('/agents', { method: 'POST', body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/agents/${id}`, { method: 'DELETE' }),
-  publish: (id: string) => request<Agent>(`/agents/${id}/publish`, { method: 'POST' }),
+  publish: (id: string, comment?: string) =>
+    request<Agent>(`/agents/${id}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
   updatePrivacy: (id: string, privacy: 'public' | 'private') =>
     request<Agent>(`/agents/${id}/privacy`, {
       method: 'PATCH',

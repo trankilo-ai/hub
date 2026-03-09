@@ -12,10 +12,20 @@ interface AgentfileFields {
   skills: string[]
 }
 
+type BumpType = 'patch' | 'minor' | 'major'
+
+function bumpVersion(current: string, type: BumpType): string {
+  const parts = current.split('.').map(Number)
+  const [maj, min, pat] = parts
+  if (type === 'patch') return `${maj}.${min}.${pat + 1}`
+  if (type === 'minor') return `${maj}.${min + 1}.0`
+  return `${maj + 1}.0.0`
+}
+
 interface Props {
   content: string
   role: Role | null
-  onPublish: (content: string) => Promise<void>
+  onPublish: (content: string, comment?: string) => Promise<void>
   onDirtyChange?: (dirty: boolean) => void
 }
 
@@ -54,6 +64,8 @@ export function AgentfileEditor({ content, role, onPublish, onDirtyChange }: Pro
   const [platformSelect, setPlatformSelect] = useState(() => platformToSelectVal(parseHcl(content).platform))
   const [publishing, setPublishing] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [selectedBump, setSelectedBump] = useState<BumpType | null>(null)
+  const [comment, setComment] = useState('')
   const [textMode, setTextMode] = useState(false)
   const [copied, setCopied] = useState(false)
   const [dirty, setDirty] = useState(false)
@@ -83,13 +95,19 @@ export function AgentfileEditor({ content, role, onPublish, onDirtyChange }: Pro
   }
 
   async function handlePublishConfirm() {
+    if (!selectedBump) return
+    const newVersion = bumpVersion(fields.version, selectedBump)
+    const updatedFields = { ...fields, version: newVersion }
+    setFields(updatedFields)
     setPublishing(true)
     setShowConfirm(false)
     try {
-      await onPublish(serializeHcl(fields))
+      await onPublish(serializeHcl(updatedFields), comment.trim() || undefined)
       setDirty(false)
     } finally {
       setPublishing(false)
+      setSelectedBump(null)
+      setComment('')
     }
   }
 
@@ -220,14 +238,62 @@ export function AgentfileEditor({ content, role, onPublish, onDirtyChange }: Pro
 
       {showConfirm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="card p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
-            <h3 className="font-semibold text-zinc-900">Publish agent?</h3>
-            <p className="text-sm text-zinc-600">
-              This will make the current Agentfile version live. Are you sure?
-            </p>
+          <div className="card p-6 max-w-md w-full mx-4 flex flex-col gap-5">
+            <div>
+              <h3 className="font-semibold text-zinc-900">Publish agent</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">Current version: <span className="font-mono">{fields.version}</span></p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Version bump</label>
+              <div className="flex gap-2">
+                {(['patch', 'minor', 'major'] as BumpType[]).map((type) => {
+                  const next = bumpVersion(fields.version, type)
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setSelectedBump(type)}
+                      className={`flex-1 flex flex-col items-center gap-0.5 rounded-lg border px-3 py-2.5 text-xs transition-colors ${
+                        selectedBump === type
+                          ? 'border-zinc-900 bg-zinc-900 text-white'
+                          : 'border-zinc-200 text-zinc-700 hover:border-zinc-400'
+                      }`}
+                    >
+                      <span className="font-medium capitalize">{type}</span>
+                      <span className={`font-mono ${selectedBump === type ? 'text-zinc-300' : 'text-zinc-400'}`}>{next}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                Release comment <span className="normal-case font-normal text-zinc-400">(optional)</span>
+              </label>
+              <textarea
+                className="input resize-none text-sm"
+                rows={3}
+                placeholder="e.g. Changed the agent's tone to pirate"
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+              />
+            </div>
+
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowConfirm(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handlePublishConfirm} className="btn-primary">Publish 🦥</button>
+              <button
+                onClick={() => { setShowConfirm(false); setSelectedBump(null); setComment('') }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublishConfirm}
+                disabled={!selectedBump}
+                className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Publish 🦥
+              </button>
             </div>
           </div>
         </div>

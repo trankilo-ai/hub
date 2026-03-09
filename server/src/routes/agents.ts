@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import { requireAgentWorkspaceRole } from '../middleware/rbac'
-import { autoLog } from '../middleware/logger'
 import {
   listPublicAgents,
   searchPublicAgents,
@@ -14,7 +13,6 @@ import {
 
 import { uploadAgentfile } from '../services/gcs'
 import { appendLog } from '../services/logs'
-
 const router = Router()
 
 router.get('/', async (_req, res) => {
@@ -125,14 +123,20 @@ router.post(
   '/:id/publish',
   authMiddleware,
   requireAgentWorkspaceRole('Editor'),
-  autoLog(() => 'Agent published'),
   async (req, res) => {
     const agent = await getAgent(req.params.id)
     if (!agent) {
       res.status(404).json({ message: 'Agent not found' })
       return
     }
+    const { comment } = req.body as { comment?: string }
     await updateAgentPrivacy(req.params.id, 'public')
+    await appendLog(req.params.id, {
+      user: req.user!.name ?? req.user!.email ?? req.user!.uid,
+      userId: req.user!.uid,
+      description: 'Agent published',
+      ...(comment ? { comment } : {}),
+    })
     res.json({ ...agent, privacy: 'public' })
   },
 )
