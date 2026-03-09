@@ -1,12 +1,9 @@
 export const PLATFORMS = [
   'LangChain',
-  'LangGraph',
   'CrewAI',
   'AutoGen',
-  'OpenAI Assistants',
-  'Vertex AI',
-  'Bedrock',
-  'Hugging Face',
-  'Custom',
+  'OpenAI Agents SDK',
+  'Google Agent Development Kit',
+  'Claude Agent SDK',
   'Other',
 ]
