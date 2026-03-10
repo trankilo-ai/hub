@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authMiddleware } from '../middleware/auth'
 import { requireAgentRole } from '../middleware/auth'
-import { recordBeat, getBeats } from '../services/heartbeats'
+import { recordBeat, getBeats, parsePeriod } from '../services/heartbeats'
 
 const router = Router({ mergeParams: true })
 
@@ -12,7 +12,9 @@ router.post('/', authMiddleware, requireAgentRole, async (req, res) => {
 })
 
 router.get('/', authMiddleware, async (req, res) => {
-  const beats = await getBeats(req.params.id)
+  const { period } = req.query as { period?: string }
+  const since = parsePeriod(period)
+  const beats = await getBeats(req.params.id, since)
   res.json(beats)
 })
 

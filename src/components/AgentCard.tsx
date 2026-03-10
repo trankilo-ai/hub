@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Agent } from '../types'
 import { heartbeatApi } from '../services/api'
+import { platformDisplay } from '../constants'
 
 interface Props {
   agent: Agent
@@ -59,7 +60,7 @@ export function AgentCard({ agent, workspaceId }: Props) {
 
       <div className="flex items-center justify-between mt-auto pt-1">
         {agent.platform && (
-          <span className="badge bg-zinc-100 text-zinc-600">{agent.platform}</span>
+          <span className="badge bg-zinc-100 text-zinc-600">{platformDisplay(agent.platform)}</span>
         )}
         <span className="text-xs text-zinc-400 ml-auto">v{agent.currentVersion}</span>
       </div>

@@ -2,14 +2,18 @@ import { useState } from 'react'
 import type { HeartbeatEntry } from '../types'
 
 const PERIODS = [
-  { label: '1H',  hours: 1,   buckets: 12, bucketMins: 5   },
-  { label: '6H',  hours: 6,   buckets: 18, bucketMins: 20  },
-  { label: '24H', hours: 24,  buckets: 24, bucketMins: 60  },
-  { label: '7D',  hours: 168, buckets: 28, bucketMins: 360 },
+  { label: '1H',  key: '1h',  hours: 1,   buckets: 12, bucketMins: 5   },
+  { label: '6H',  key: '6h',  hours: 6,   buckets: 18, bucketMins: 20  },
+  { label: '24H', key: '24h', hours: 24,  buckets: 24, bucketMins: 60  },
+  { label: '3D',  key: '3d',  hours: 72,  buckets: 24, bucketMins: 180 },
+  { label: '7D',  key: '7d',  hours: 168, buckets: 28, bucketMins: 360 },
 ]
 
 interface Props {
   beats: HeartbeatEntry[]
+  loading?: boolean
+  period?: string
+  onPeriodChange?: (period: string) => void
 }
 
 interface Bucket {
@@ -121,68 +125,69 @@ function AvailabilityChart({
   )
 }
 
-export function HeartbeatMonitor({ beats }: Props) {
-  const [period, setPeriod] = useState(PERIODS[2])
+export function HeartbeatMonitor({ beats, loading = false, period = '1h', onPeriodChange }: Props) {
   const [view, setView] = useState<'graph' | 'table'>('graph')
 
-  const windowMs = period.hours * 3_600_000
-  const filtered = beats.filter(b => new Date(b.timestamp).getTime() >= Date.now() - windowMs)
-  const buckets = buildBuckets(beats, period.hours, period.buckets, period.bucketMins)
+  const activePeriod = PERIODS.find(p => p.key === period) ?? PERIODS[0]
+
+  const buckets = buildBuckets(beats, activePeriod.hours, activePeriod.buckets, activePeriod.bucketMins)
 
   return (
     <div className="flex flex-col h-full">
-      {beats.length === 0 ? (
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-white">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">Heartbeats</h3>
+          <span className="text-xs text-zinc-400">({beats.length})</span>
+          {loading && <span className="text-xs text-zinc-400 animate-pulse">Loading…</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-md border border-zinc-200 overflow-hidden text-xs">
+            {PERIODS.map(p => (
+              <button
+                key={p.key}
+                onClick={() => onPeriodChange?.(p.key)}
+                disabled={loading}
+                className={`px-2.5 py-1 transition-colors disabled:opacity-50 ${
+                  activePeriod.key === p.key
+                    ? 'bg-zinc-900 text-white'
+                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center rounded-md border border-zinc-200 overflow-hidden text-xs">
+            <button
+              onClick={() => setView('graph')}
+              className={`px-2.5 py-1 transition-colors ${view === 'graph' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              Graph
+            </button>
+            <button
+              onClick={() => setView('table')}
+              className={`px-2.5 py-1 transition-colors ${view === 'table' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              Table
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {beats.length === 0 && !loading ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
           <span className="w-2 h-2 rounded-full bg-zinc-300" />
-          <p className="text-xs text-zinc-400">No heartbeats recorded yet</p>
+          <p className="text-xs text-zinc-400">No heartbeats recorded in this period</p>
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-white">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">Heartbeats</h3>
-              <span className="text-xs text-zinc-400">({filtered.length})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center rounded-md border border-zinc-200 overflow-hidden text-xs">
-                {PERIODS.map(p => (
-                  <button
-                    key={p.label}
-                    onClick={() => setPeriod(p)}
-                    className={`px-2.5 py-1 transition-colors ${
-                      period.label === p.label
-                        ? 'bg-zinc-900 text-white'
-                        : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center rounded-md border border-zinc-200 overflow-hidden text-xs">
-                <button
-                  onClick={() => setView('graph')}
-                  className={`px-2.5 py-1 transition-colors ${view === 'graph' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50'}`}
-                >
-                  Graph
-                </button>
-                <button
-                  onClick={() => setView('table')}
-                  className={`px-2.5 py-1 transition-colors ${view === 'table' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50'}`}
-                >
-                  Table
-                </button>
-              </div>
-            </div>
-          </div>
-
           {view === 'graph' ? (
             <div className="px-4 py-5">
-              <AvailabilityChart buckets={buckets} periodLabel={period.label} />
+              <AvailabilityChart buckets={buckets} periodLabel={activePeriod.label} />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto">
-              {filtered.length === 0 ? (
+              {beats.length === 0 ? (
                 <p className="text-xs text-zinc-400 text-center py-8">No heartbeats in this period</p>
               ) : (
                 <table className="w-full text-xs">
@@ -193,7 +198,7 @@ export function HeartbeatMonitor({ beats }: Props) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
-                    {filtered.map((b, i) => (
+                    {beats.map((b, i) => (
                       <tr key={i} className="hover:bg-zinc-50">
                         <td className="px-4 py-2.5 text-zinc-600">{formatDateTime(b.timestamp)}</td>
                         <td className="px-4 py-2.5 font-mono text-zinc-700">

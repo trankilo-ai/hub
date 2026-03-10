@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { agentsApi, agentfileApi } from '../services/api'
 import type { Agent } from '../types'
+import { platformDisplay } from '../constants'
 
 export function PublicAgentPage() {
   const { agentId } = useParams<{ agentId: string }>()
@@ -49,7 +50,7 @@ export function PublicAgentPage() {
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs text-zinc-500">
-          {agent.platform && <span className="badge bg-zinc-100 text-zinc-600">{agent.platform}</span>}
+          {agent.platform && <span className="badge bg-zinc-100 text-zinc-600">{platformDisplay(agent.platform)}</span>}
           <span>v{agent.currentVersion}</span>
           <span>Updated {new Date(agent.updatedAt).toLocaleDateString()}</span>
         </div>

@@ -4,8 +4,6 @@ import app from '../src/index'
 import { getMemberRole } from '../src/services/workspaces'
 import { HUMAN_TOKEN } from './helpers'
 
-const VIEWER_TOKEN = 'valid-human-token'
-
 describe('RBAC — Viewer restrictions', () => {
   beforeEach(() => {
     ;(getMemberRole as jest.Mock).mockResolvedValue('Viewer')
@@ -13,30 +11,23 @@ describe('RBAC — Viewer restrictions', () => {
 
   it('Viewer cannot PUT agentfile (403)', async () => {
     const res = await request(app)
-      .put('/api/agents/agent-1/agentfile')
-      .set({ Authorization: `Bearer ${VIEWER_TOKEN}` })
+      .put('/api/agent/agent-1/agentfile')
+      .set({ Authorization: `Bearer ${HUMAN_TOKEN}` })
       .send({ content: 'agent "X" {\n  version = "1.0.0"\n}' })
     expect(res.status).toBe(403)
   })
 
   it('Viewer cannot DELETE agent (403)', async () => {
     const res = await request(app)
-      .delete('/api/agents/agent-1')
-      .set({ Authorization: `Bearer ${VIEWER_TOKEN}` })
-    expect(res.status).toBe(403)
-  })
-
-  it('Viewer cannot publish agent (403)', async () => {
-    const res = await request(app)
-      .post('/api/agents/agent-1/publish')
-      .set({ Authorization: `Bearer ${VIEWER_TOKEN}` })
+      .delete('/api/agent/agent-1')
+      .set({ Authorization: `Bearer ${HUMAN_TOKEN}` })
     expect(res.status).toBe(403)
   })
 
   it('Viewer cannot change member roles (403)', async () => {
     const res = await request(app)
-      .put('/api/workspaces/ws-1/members/viewer-uid/role')
-      .set({ Authorization: `Bearer ${VIEWER_TOKEN}` })
+      .patch('/api/workspace/ws-1/member/viewer-uid/role')
+      .set({ Authorization: `Bearer ${HUMAN_TOKEN}` })
       .send({ role: 'Editor' })
     expect(res.status).toBe(403)
   })
@@ -49,7 +40,7 @@ describe('RBAC — non-member access', () => {
 
   it('non-member gets 403 on agentfile PUT', async () => {
     const res = await request(app)
-      .put('/api/agents/agent-1/agentfile')
+      .put('/api/agent/agent-1/agentfile')
       .set({ Authorization: `Bearer ${HUMAN_TOKEN}` })
       .send({ content: 'agent "X" {\n  version = "1.0.0"\n}' })
     expect(res.status).toBe(403)
@@ -67,7 +58,7 @@ describe('RBAC — non-member access', () => {
     })
 
     const res = await request(app)
-      .get('/api/workspaces/ws-1')
+      .get('/api/workspace/ws-1')
       .set({ Authorization: `Bearer ${HUMAN_TOKEN}` })
     expect(res.status).toBe(403)
   })

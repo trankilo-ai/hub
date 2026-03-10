@@ -10,6 +10,7 @@ import workspacesRouter from './routes/workspaces'
 import heartbeatRouter from './routes/heartbeat'
 import logsRouter from './routes/logs'
 import playgroundRouter from './routes/playground'
+import schemaRouter from './routes/schema'
 
 initFirebase()
 
@@ -27,12 +28,13 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/auth', authRouter)
-app.use('/api/agents', agentsRouter)
-app.use('/api/agents/:id/agentfile', agentfileRouter)
-app.use('/api/agents/:id/heartbeat', heartbeatRouter)
-app.use('/api/agents/:id/logs', logsRouter)
-app.use('/api/workspaces', workspacesRouter)
+app.use('/api/agent', agentsRouter)
+app.use('/api/agent/:id/agentfile', agentfileRouter)
+app.use('/api/agent/:id/heartbeat', heartbeatRouter)
+app.use('/api/agent/:id/logs', logsRouter)
+app.use('/api/workspace', workspacesRouter)
 app.use('/api/playground', playgroundRouter)
+app.use('/api/schema', schemaRouter)
 
 app.use(
   (
@@ -51,6 +53,6 @@ export default app
 if (require.main === module) {
   const PORT = Number(process.env.PORT ?? 3001)
   app.listen(PORT, () => {
-    console.log(`🦥 trankilo-ai server running on :${PORT}`)
+    console.log(`🦥 trankilo-ai hub server running on :${PORT}`)
   })
 }

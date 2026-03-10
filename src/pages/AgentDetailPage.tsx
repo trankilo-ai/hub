@@ -8,6 +8,7 @@ import { HeartbeatMonitor, timeSince } from '../components/HeartbeatMonitor'
 import { AgentLog } from '../components/AgentLog'
 import { agentsApi, agentfileApi, heartbeatApi, logsApi } from '../services/api'
 import type { Agent, AgentVersion, HeartbeatEntry, LogEntry, Role } from '../types'
+import { platformDisplay } from '../constants'
 
 type Tab = 'editor' | 'playground' | 'monitor' | 'log'
 
@@ -18,16 +19,17 @@ export function AgentDetailPage() {
   const [agentfileContent, setAgentfileContent] = useState('')
   const [versions, setVersions] = useState<AgentVersion[]>([])
   const [beats, setBeats] = useState<HeartbeatEntry[]>([])
+  const [beatsLoading, setBeatsLoading] = useState(false)
+  const [beatsPeriod, setBeatsPeriod] = useState('1h')
+  const beatsLoadedRef = useRef(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [activeTab, setActiveTab] = useState<Tab>('editor')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agentfileDirty, setAgentfileDirty] = useState(false)
-  const [privacyDirty, setPrivacyDirty] = useState(false)
-  const isPageDirty = agentfileDirty || privacyDirty
-  const isPageDirtyRef = useRef(isPageDirty)
+  const isPageDirtyRef = useRef(false)
 
-  useEffect(() => { isPageDirtyRef.current = isPageDirty }, [isPageDirty])
+  useEffect(() => { isPageDirtyRef.current = agentfileDirty }, [agentfileDirty])
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -40,7 +42,7 @@ export function AgentDetailPage() {
   }, [])
 
   useEffect(() => {
-    if (!isPageDirty) return
+    if (!agentfileDirty) return
     window.history.pushState({ guardDirty: true }, '', window.location.href)
     const handlePopState = () => {
       if (!isPageDirtyRef.current) return
@@ -52,7 +54,7 @@ export function AgentDetailPage() {
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [isPageDirty])
+  }, [agentfileDirty])
 
   const currentRole: Role = 'Editor' as Role
 
@@ -60,17 +62,15 @@ export function AgentDetailPage() {
     if (!agentId) return
     setLoading(true)
     try {
-      const [a, af, vers, hb, lg] = await Promise.all([
+      const [a, af, vers, lg] = await Promise.all([
         agentsApi.get(agentId),
         agentfileApi.get(agentId).catch(() => ({ content: '' })),
         agentfileApi.versions(agentId).catch(() => []),
-        heartbeatApi.get(agentId).catch(() => []),
         logsApi.get(agentId).catch(() => []),
       ])
       setAgent(a)
       setAgentfileContent(af.content)
       setVersions(vers)
-      setBeats(hb)
       setLogs(lg)
     } catch (e) {
       setError((e as Error).message)
@@ -79,14 +79,37 @@ export function AgentDetailPage() {
     }
   }
 
+  async function loadBeats(period: string) {
+    if (!agentId) return
+    setBeatsLoading(true)
+    try {
+      const hb = await heartbeatApi.get(agentId, period)
+      setBeats(hb)
+      beatsLoadedRef.current = true
+    } catch {
+      setBeats([])
+    } finally {
+      setBeatsLoading(false)
+    }
+  }
+
   useEffect(() => { load() }, [agentId])
 
+  useEffect(() => {
+    if (activeTab === 'monitor') {
+      loadBeats(beatsPeriod)
+    }
+  }, [activeTab, agentId])
+
+  async function handlePeriodChange(period: string) {
+    setBeatsPeriod(period)
+    await loadBeats(period)
+  }
+
   async function handlePublish(content: string, comment?: string) {
-    if (!agentId || !agent) return
-    await agentfileApi.save(agentId, content)
+    if (!agentId) return
+    await agentfileApi.save(agentId, content, comment)
     setAgentfileContent(content)
-    if (privacyDirty) await agentsApi.updatePrivacy(agentId, agent.privacy)
-    await agentsApi.publish(agentId, comment)
     const [vers, a, lg] = await Promise.all([
       agentfileApi.versions(agentId),
       agentsApi.get(agentId),
@@ -95,9 +118,13 @@ export function AgentDetailPage() {
     setVersions(vers)
     setAgent(a)
     setLogs(lg)
-    setPrivacyDirty(false)
   }
 
+  async function handlePrivacyChange(privacy: 'public' | 'private') {
+    if (!agentId || !agent) return
+    await agentsApi.updatePrivacy(agentId, privacy)
+    setAgent({ ...agent, privacy })
+  }
 
   if (loading) {
     return (
@@ -158,7 +185,7 @@ export function AgentDetailPage() {
             <button
               onClick={() => {
                 const dest = workspaceId ? `/workspace/${workspaceId}` : '/'
-                if (!isPageDirty || window.confirm('You have unpublished changes. Leave anyway?')) {
+                if (!agentfileDirty || window.confirm('You have unpublished changes. Leave anyway?')) {
                   navigate(dest)
                 }
               }}
@@ -168,22 +195,19 @@ export function AgentDetailPage() {
             </button>
             <span className="text-zinc-300">/</span>
             <h1 className="text-lg font-semibold text-zinc-900">{agent.name}</h1>
-            {isPageDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unpublished changes" />}
+            {agentfileDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unpublished changes" />}
             <span className={agent.privacy === 'public' ? 'badge-public' : 'badge-private'}>
               {agent.privacy}
             </span>
           </div>
           <p className="text-xs text-zinc-500 mt-1">
-            v{agent.currentVersion} · {agent.platform}
+            v{agent.currentVersion} · {platformDisplay(agent.platform) || agent.platform}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <PrivacyToggle
             privacy={agent.privacy}
-            onChange={(p) => {
-              setAgent({ ...agent, privacy: p })
-              setPrivacyDirty(true)
-            }}
+            onChange={handlePrivacyChange}
             disabled={currentRole === 'Viewer'}
           />
         </div>
@@ -233,7 +257,12 @@ export function AgentDetailPage() {
 
         {activeTab === 'monitor' && (
           <div className="flex-1 border border-zinc-200 rounded-xl overflow-hidden flex flex-col">
-            <HeartbeatMonitor beats={beats} />
+            <HeartbeatMonitor
+              beats={beats}
+              loading={beatsLoading}
+              period={beatsPeriod}
+              onPeriodChange={handlePeriodChange}
+            />
           </div>
         )}
 

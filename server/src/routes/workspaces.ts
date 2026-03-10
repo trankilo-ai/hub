@@ -14,12 +14,12 @@ router.get('/', authMiddleware, async (req, res) => {
   res.json(workspaces)
 })
 
-router.get('/:workspaceId/agents', authMiddleware, requireWorkspaceRole('Viewer'), async (req, res) => {
+router.get('/:workspaceId/agent', authMiddleware, requireWorkspaceRole('Viewer'), async (req, res) => {
   const agents = await listWorkspaceAgents(req.params.workspaceId)
   res.json(agents)
 })
 
-router.get('/:workspaceId/members', authMiddleware, async (req, res) => {
+router.get('/:workspaceId/member', authMiddleware, async (req, res) => {
   const ws = await getWorkspace(req.params.workspaceId)
   if (!ws) { res.status(404).json({ message: 'Workspace not found' }); return }
   if (!ws.members[req.user!.uid]) { res.status(403).json({ message: 'Not a member' }); return }
@@ -59,7 +59,7 @@ router.post('/', authMiddleware, async (req, res) => {
 })
 
 router.get(
-  '/:workspaceId/invites',
+  '/:workspaceId/invite',
   authMiddleware,
   requireWorkspaceRole('Viewer'),
   async (req, res) => {
@@ -88,7 +88,7 @@ router.post(
 )
 
 router.post(
-  '/:workspaceId/invites/:inviteId/accept',
+  '/:workspaceId/invite/:inviteId/accept',
   authMiddleware,
   async (req, res) => {
     const { workspaceId, inviteId } = req.params
@@ -106,7 +106,7 @@ router.post(
 )
 
 router.delete(
-  '/:workspaceId/invites/:inviteId',
+  '/:workspaceId/invite/:inviteId',
   authMiddleware,
   requireWorkspaceRole('Admin'),
   async (req, res) => {
@@ -115,8 +115,8 @@ router.delete(
   },
 )
 
-router.put(
-  '/:workspaceId/members/:userId/role',
+router.patch(
+  '/:workspaceId/member/:userId/role',
   authMiddleware,
   requireWorkspaceRole('Admin'),
   async (req, res) => {

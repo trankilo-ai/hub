@@ -4,10 +4,10 @@ import app from '../src/index'
 import { authHeader, HUMAN_TOKEN } from './helpers'
 import { createWorkspace, setMemberRole } from '../src/services/workspaces'
 
-describe('GET /api/workspaces/:workspaceId', () => {
+describe('GET /api/workspace/:workspaceId', () => {
   it('returns workspace for a member', async () => {
     const res = await request(app)
-      .get('/api/workspaces/ws-1')
+      .get('/api/workspace/ws-1')
       .set(authHeader(HUMAN_TOKEN))
     expect(res.status).toBe(200)
     expect(res.body.id).toBe('ws-1')
@@ -16,16 +16,16 @@ describe('GET /api/workspaces/:workspaceId', () => {
 
   it('returns 404 for unknown workspace', async () => {
     const res = await request(app)
-      .get('/api/workspaces/nonexistent')
+      .get('/api/workspace/nonexistent')
       .set(authHeader(HUMAN_TOKEN))
     expect(res.status).toBe(404)
   })
 })
 
-describe('POST /api/workspaces', () => {
+describe('POST /api/workspace', () => {
   it('creates workspace and returns 201', async () => {
     const res = await request(app)
-      .post('/api/workspaces')
+      .post('/api/workspace')
       .set(authHeader(HUMAN_TOKEN))
       .send({ name: 'My Workspace' })
     expect(res.status).toBe(201)
@@ -35,36 +35,37 @@ describe('POST /api/workspaces', () => {
 
   it('returns 400 when name missing', async () => {
     const res = await request(app)
-      .post('/api/workspaces')
+      .post('/api/workspace')
       .set(authHeader(HUMAN_TOKEN))
       .send({})
     expect(res.status).toBe(400)
   })
 })
 
-describe('POST /api/workspaces/:workspaceId/invite', () => {
-  it('sends invite and returns success (no invite doc persisted)', async () => {
+describe('POST /api/workspace/:workspaceId/invite', () => {
+  it('creates invite and returns 201', async () => {
     const res = await request(app)
-      .post('/api/workspaces/ws-1/invite')
+      .post('/api/workspace/ws-1/invite')
       .set(authHeader(HUMAN_TOKEN))
       .send({ email: 'new@example.com', role: 'Editor' })
-    expect(res.status).toBe(200)
-    expect(res.body.message).toMatch(/invite sent/i)
+    expect(res.status).toBe(201)
+    expect(res.body).toHaveProperty('id')
+    expect(res.body.email).toBe('new@example.com')
   })
 
   it('returns 400 when email missing', async () => {
     const res = await request(app)
-      .post('/api/workspaces/ws-1/invite')
+      .post('/api/workspace/ws-1/invite')
       .set(authHeader(HUMAN_TOKEN))
       .send({ role: 'Editor' })
     expect(res.status).toBe(400)
   })
 })
 
-describe('PUT /api/workspaces/:workspaceId/members/:userId/role', () => {
+describe('PATCH /api/workspace/:workspaceId/member/:userId/role', () => {
   it('updates member role', async () => {
     const res = await request(app)
-      .put('/api/workspaces/ws-1/members/viewer-uid/role')
+      .patch('/api/workspace/ws-1/member/viewer-uid/role')
       .set(authHeader(HUMAN_TOKEN))
       .send({ role: 'Editor' })
     expect(res.status).toBe(200)
@@ -73,7 +74,7 @@ describe('PUT /api/workspaces/:workspaceId/members/:userId/role', () => {
 
   it('returns 400 for invalid role', async () => {
     const res = await request(app)
-      .put('/api/workspaces/ws-1/members/viewer-uid/role')
+      .patch('/api/workspace/ws-1/member/viewer-uid/role')
       .set(authHeader(HUMAN_TOKEN))
       .send({ role: 'SuperAdmin' })
     expect(res.status).toBe(400)

@@ -41,9 +41,12 @@ router.put(
   '/',
   authMiddleware,
   requireAgentWorkspaceRole('Editor'),
-  autoLog(() => 'Agentfile pushed'),
+  autoLog((req) => {
+    const body = req.body as { comment?: string }
+    return body.comment ? `Agentfile pushed: ${body.comment}` : 'Agentfile pushed'
+  }),
   async (req, res) => {
-    const { content } = req.body as { content?: string }
+    const { content, comment: _comment } = req.body as { content?: string; comment?: string }
     if (!content) {
       res.status(400).json({ message: 'content required' })
       return

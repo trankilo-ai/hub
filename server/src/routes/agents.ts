@@ -10,10 +10,15 @@ import {
   updateAgentPrivacy,
   addAgentVersion,
 } from '../services/agents'
-
 import { uploadAgentfile } from '../services/gcs'
 import { appendLog } from '../services/logs'
+
 const router = Router()
+
+function parseHclField(hcl: string, field: string): string | null {
+  const match = hcl.match(new RegExp(`^\\s*${field}\\s*=\\s*"([^"]*)"`, 'm'))
+  return match ? match[1] : null
+}
 
 router.get('/', async (_req, res) => {
   const agents = await listPublicAgents()
@@ -26,20 +31,12 @@ router.get('/search', async (req, res) => {
   res.json(agents)
 })
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
   const agent = await getAgent(req.params.id)
   if (!agent) {
     res.status(404).json({ message: 'Agent not found' })
     return
   }
-
-  if (agent.privacy === 'private') {
-    if (!req.user) {
-      res.status(401).json({ message: 'Authentication required' })
-      return
-    }
-  }
-
   res.json(agent)
 })
 
@@ -47,12 +44,11 @@ router.post(
   '/',
   authMiddleware,
   async (req, res) => {
-    const { name, platform, description, privacy, workspaceId } = req.body as {
+    const { name, platform, workspaceId, content } = req.body as {
       name: string
-      platform: string
-      description: string
-      privacy: 'public' | 'private'
+      platform?: string
       workspaceId: string
+      content?: string
     }
 
     if (!name || !workspaceId) {
@@ -60,19 +56,23 @@ router.post(
       return
     }
 
+    const resolvedPlatform = platform ?? (content ? (parseHclField(content, 'platform') ?? '') : '')
+    const initialVersion = content ? (parseHclField(content, 'version') ?? '0.0.1') : '0.0.1'
+
     const agent = await createAgent({
       name,
-      platform: platform ?? '',
-      description: description ?? '',
-      privacy: privacy ?? 'private',
+      platform: resolvedPlatform,
+      description: '',
+      privacy: 'private',
       workspaceId,
       ownerId: req.user!.uid,
     })
 
-    const initialContent = `agent "${name}" {\n  version      = "0.0.1"\n  platform     = "${platform ?? ''}"\n  model        = "gpt-4o"\n  instructions = ""\n  tools        = []\n  skills       = []\n}\n`
+    const agentfileContent = content ?? `agent "${name}" {\n  version      = "${initialVersion}"\n  platform     = "${resolvedPlatform}"\n  model        = "gpt-4o"\n  instructions = ""\n}\n`
+
     try {
-      await uploadAgentfile(agent.id, '0.0.1', initialContent)
-      await addAgentVersion(agent.id, '0.0.1', req.user!.email ?? req.user!.uid)
+      await uploadAgentfile(agent.id, initialVersion, agentfileContent)
+      await addAgentVersion(agent.id, initialVersion, req.user!.email ?? req.user!.uid)
     } catch (storageErr) {
       await deleteAgent(agent.id)
       throw storageErr
@@ -114,30 +114,13 @@ router.patch(
       return
     }
     await updateAgentPrivacy(req.params.id, privacy)
-    const agent = await getAgent(req.params.id)
-    res.json(agent)
-  },
-)
-
-router.post(
-  '/:id/publish',
-  authMiddleware,
-  requireAgentWorkspaceRole('Editor'),
-  async (req, res) => {
-    const agent = await getAgent(req.params.id)
-    if (!agent) {
-      res.status(404).json({ message: 'Agent not found' })
-      return
-    }
-    const { comment } = req.body as { comment?: string }
-    await updateAgentPrivacy(req.params.id, 'public')
     await appendLog(req.params.id, {
       user: req.user!.name ?? req.user!.email ?? req.user!.uid,
       userId: req.user!.uid,
-      description: 'Agent published',
-      ...(comment ? { comment } : {}),
+      description: privacy === 'public' ? 'Agent made public' : 'Agent made private',
     })
-    res.json({ ...agent, privacy: 'public' })
+    const agent = await getAgent(req.params.id)
+    res.json(agent)
   },
 )
 

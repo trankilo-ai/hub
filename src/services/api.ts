@@ -27,74 +27,75 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
+interface LoginResponse {
+  token: string
+  user: UserProfile
+}
+
 export const authApi = {
   login: (idToken: string) =>
-    request<UserProfile>('/auth/login', {
+    request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ idToken }),
     }),
 }
 
 export const agentsApi = {
-  list: () => request<Agent[]>('/agents'),
+  list: () => request<Agent[]>('/agent'),
   search: (q: string, platform?: string) =>
-    request<Agent[]>(`/agents/search?q=${encodeURIComponent(q)}${platform ? `&platform=${encodeURIComponent(platform)}` : ''}`),
-  get: (id: string) => request<Agent>(`/agents/${id}`),
-  create: (data: Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | 'currentVersion' | 'ownerId'>) =>
-    request<Agent>('/agents', { method: 'POST', body: JSON.stringify(data) }),
-  delete: (id: string) => request<void>(`/agents/${id}`, { method: 'DELETE' }),
-  publish: (id: string, comment?: string) =>
-    request<Agent>(`/agents/${id}/publish`, {
-      method: 'POST',
-      body: JSON.stringify({ comment }),
-    }),
+    request<Agent[]>(`/agent/search?q=${encodeURIComponent(q)}${platform ? `&platform=${encodeURIComponent(platform)}` : ''}`),
+  get: (id: string) => request<Agent>(`/agent/${id}`),
+  create: (data: { name: string; platform?: string; workspaceId: string; content?: string }) =>
+    request<Agent>('/agent', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/agent/${id}`, { method: 'DELETE' }),
   updatePrivacy: (id: string, privacy: 'public' | 'private') =>
-    request<Agent>(`/agents/${id}/privacy`, {
+    request<Agent>(`/agent/${id}/privacy`, {
       method: 'PATCH',
       body: JSON.stringify({ privacy }),
     }),
 }
 
 export const agentfileApi = {
-  get: (id: string) => request<{ content: string }>(`/agents/${id}/agentfile`),
-  save: (id: string, content: string) =>
-    request<{ version: string }>(`/agents/${id}/agentfile`, {
+  get: (id: string) => request<{ content: string }>(`/agent/${id}/agentfile`),
+  save: (id: string, content: string, comment?: string) =>
+    request<{ version: string }>(`/agent/${id}/agentfile`, {
       method: 'PUT',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...(comment ? { comment } : {}) }),
     }),
-  versions: (id: string) => request<AgentVersion[]>(`/agents/${id}/agentfile/versions`),
+  versions: (id: string) => request<AgentVersion[]>(`/agent/${id}/agentfile/versions`),
   getVersion: (id: string, version: string) =>
-    request<{ content: string }>(`/agents/${id}/agentfile/versions/${encodeURIComponent(version)}`),
+    request<{ content: string }>(`/agent/${id}/agentfile/versions/${encodeURIComponent(version)}`),
 }
 
 export const logsApi = {
-  get: (agentId: string) => request<LogEntry[]>(`/agents/${agentId}/logs`),
+  get: (agentId: string) => request<LogEntry[]>(`/agent/${agentId}/logs`),
 }
 
 export const workspacesApi = {
-  list: () => request<Workspace[]>('/workspaces'),
-  get: (id: string) => request<Workspace>(`/workspaces/${id}`),
-  agents: (id: string) => request<Agent[]>(`/workspaces/${id}/agents`),
-  members: (id: string) => request<WorkspaceMember[]>(`/workspaces/${id}/members`),
-  invites: (id: string) => request<WorkspaceInvite[]>(`/workspaces/${id}/invites`),
+  list: () => request<Workspace[]>('/workspace'),
+  get: (id: string) => request<Workspace>(`/workspace/${id}`),
+  agents: (id: string) => request<Agent[]>(`/workspace/${id}/agent`),
+  members: (id: string) => request<WorkspaceMember[]>(`/workspace/${id}/member`),
+  invites: (id: string) => request<WorkspaceInvite[]>(`/workspace/${id}/invite`),
   deleteInvite: (workspaceId: string, inviteId: string) =>
-    request<void>(`/workspaces/${workspaceId}/invites/${inviteId}`, { method: 'DELETE' }),
+    request<void>(`/workspace/${workspaceId}/invite/${inviteId}`, { method: 'DELETE' }),
   acceptInvite: (workspaceId: string, inviteId: string) =>
-    request<Workspace>(`/workspaces/${workspaceId}/invites/${inviteId}/accept`, { method: 'POST' }),
+    request<Workspace>(`/workspace/${workspaceId}/invite/${inviteId}/accept`, { method: 'POST' }),
   create: (name: string) =>
-    request<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify({ name }) }),
+    request<Workspace>('/workspace', { method: 'POST', body: JSON.stringify({ name }) }),
   invite: (id: string, email: string, role: string) =>
-    request<void>(`/workspaces/${id}/invite`, {
+    request<void>(`/workspace/${id}/invite`, {
       method: 'POST',
       body: JSON.stringify({ email, role }),
     }),
   setRole: (workspaceId: string, userId: string, role: string) =>
-    request<void>(`/workspaces/${workspaceId}/members/${userId}/role`, {
-      method: 'PUT',
+    request<void>(`/workspace/${workspaceId}/member/${userId}/role`, {
+      method: 'PATCH',
       body: JSON.stringify({ role }),
     }),
 }
 
 export const heartbeatApi = {
-  get: (agentId: string) => request<HeartbeatEntry[]>(`/agents/${agentId}/heartbeat`),
+  get: (agentId: string, period?: string) =>
+    request<HeartbeatEntry[]>(`/agent/${agentId}/heartbeat${period ? `?period=${encodeURIComponent(period)}` : ''}`),
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Role } from '../types'
-import { PLATFORMS } from '../constants'
+import { PLATFORMS, platformDisplay, platformValue } from '../constants'
 
 interface AgentfileFields {
   name: string
@@ -56,7 +56,12 @@ const KNOWN_PLATFORMS = PLATFORMS.filter(p => p !== 'Other')
 
 function platformToSelectVal(platform: string): string {
   if (platform === '') return ''
-  return KNOWN_PLATFORMS.includes(platform) ? platform : 'Other'
+  return platformDisplay(platform) || (platform ? 'Other' : '')
+}
+
+function platformFromSelectVal(selectVal: string): string {
+  if (selectVal === '' || selectVal === 'Other') return selectVal === 'Other' ? 'other' : ''
+  return platformValue(selectVal) || selectVal
 }
 
 export function AgentfileEditor({ content, role, onPublish, onDirtyChange }: Props) {
@@ -190,7 +195,7 @@ export function AgentfileEditor({ content, role, onPublish, onDirtyChange }: Pro
                   value={platformSelect}
                   onChange={e => {
                     setPlatformSelect(e.target.value)
-                    if (e.target.value !== 'Other') update('platform', e.target.value)
+                    if (e.target.value !== 'Other') update('platform', platformFromSelectVal(e.target.value))
                     else update('platform', '')
                   }}
                   disabled={isViewer}
