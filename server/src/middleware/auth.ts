@@ -17,10 +17,6 @@ function setUserFromToken(req: Request, token: string): boolean {
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
-  if (process.env.NODE_ENV === 'development') {
-    return next()
-  }
-
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) {
     res.status(401).json({ message: 'Missing or invalid Authorization header' })

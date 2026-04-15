@@ -3,9 +3,13 @@ import { authMiddleware } from '../middleware/auth'
 import { requireAgentWorkspaceRole } from '../middleware/rbac'
 import { autoLog } from '../middleware/logger'
 import { getAgent, updateAgentVersion, updateAgentPlatform, updateAgentName, addAgentVersion, listAgentVersions } from '../services/agents'
-import { uploadAgentfile, downloadAgentfile } from '../services/gcs'
+import { uploadFile, downloadFile } from '../services/gcs'
 
 const router = Router({ mergeParams: true })
+
+function getPath(agentId: string, version: string): string {
+  return `agents/${agentId}/Agentfile.${version}`
+}
 
 function parseVersion(hcl: string): string | null {
   const match = hcl.match(/version\s*=\s*"([^"]+)"/)
@@ -30,7 +34,8 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 
   try {
-    const content = await downloadAgentfile(agent.id, agent.currentVersion)
+    const path = getPath(agent.id, agent.currentVersion)
+    const content = await downloadFile(path)
     res.json({ content })
   } catch {
     res.status(404).json({ message: 'Agentfile not found in storage' })
@@ -67,7 +72,8 @@ router.put(
     const platform = parsePlatform(content)
     const name = parseName(content)
 
-    await uploadAgentfile(agent.id, version, content)
+    const path = getPath(agent.id, version)
+    await uploadFile(path, content)
     await addAgentVersion(agent.id, version, req.user!.email ?? req.user!.uid)
     await updateAgentVersion(agent.id, version)
     await updateAgentPlatform(agent.id, platform)
@@ -85,7 +91,8 @@ router.get('/versions', authMiddleware, async (req, res) => {
 router.get('/versions/:version', authMiddleware, async (req, res) => {
   const { id, version } = req.params
   try {
-    const content = await downloadAgentfile(id, version)
+    const path = getPath(id, version)
+    const content = await downloadFile(path)
     res.json({ content })
   } catch {
     res.status(404).json({ message: `Version ${version} not found` })

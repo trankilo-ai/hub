@@ -4,35 +4,19 @@ function getBucket() {
   return admin.storage().bucket(process.env.GCS_BUCKET_NAME ?? `${process.env.FIREBASE_PROJECT_ID}.appspot.com`)
 }
 
-function objectPath(agentId: string, version: string): string {
-  return `agents/${agentId}/Agentfile.${version}`
-}
-
-export async function uploadAgentfile(
-  agentId: string,
-  version: string,
+export async function uploadFile(
+  objectPath: string,
   content: string,
+  contentType = 'text/plain',
 ): Promise<void> {
-  const file = getBucket().file(objectPath(agentId, version))
+  const file = getBucket().file(objectPath)
   await file.save(content, {
-    contentType: 'text/plain',
-    metadata: { agentId, version },
+    contentType,
   })
 }
 
-export async function downloadAgentfile(
-  agentId: string,
-  version: string,
-): Promise<string> {
-  const file = getBucket().file(objectPath(agentId, version))
+export async function downloadFile(objectPath: string): Promise<string> {
+  const file = getBucket().file(objectPath)
   const [contents] = await file.download()
   return contents.toString('utf-8')
-}
-
-export async function agentfileExists(
-  agentId: string,
-  version: string,
-): Promise<boolean> {
-  const [exists] = await getBucket().file(objectPath(agentId, version)).exists()
-  return exists
 }

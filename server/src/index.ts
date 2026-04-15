@@ -2,8 +2,10 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { initFirebase } from './services/firebase'
+import errorHandler from './middleware/errorHandler'
 
 import authRouter from './routes/auth'
+import agentRouter from './routes/agent'
 import agentsRouter from './routes/agents'
 import agentfileRouter from './routes/agentfile'
 import workspacesRouter from './routes/workspaces'
@@ -28,6 +30,7 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/auth', authRouter)
+app.use('/v1/agent', agentRouter)
 app.use('/api/agent', agentsRouter)
 app.use('/api/agent/:id/agentfile', agentfileRouter)
 app.use('/api/agent/:id/heartbeat', heartbeatRouter)
@@ -36,17 +39,7 @@ app.use('/api/workspace', workspacesRouter)
 app.use('/api/playground', playgroundRouter)
 app.use('/api/schema', schemaRouter)
 
-app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction,
-  ) => {
-    console.error(err)
-    res.status(500).json({ message: 'Internal server error' })
-  },
-)
+app.use(errorHandler)
 
 export default app
 

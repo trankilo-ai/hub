@@ -55,10 +55,25 @@ export interface LogDoc {
   entries: LogEntry[]
 }
 
+export interface ApiKeyRecord {
+  id: string
+  hash: string
+  isActive: boolean
+  scopes: string[]
+  ownerId: string
+}
+
+export interface ApiIdentity {
+  userId: string
+  keyId: string
+  scopes: string[]
+}
+
 declare global {
   namespace Express {
     interface Request {
       user?: DecodedIdToken & { role?: string }
+      identity?: ApiIdentity
     }
   }
 }

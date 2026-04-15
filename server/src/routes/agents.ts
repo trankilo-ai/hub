@@ -10,7 +10,7 @@ import {
   updateAgentPrivacy,
   addAgentVersion,
 } from '../services/agents'
-import { uploadAgentfile } from '../services/gcs'
+import { uploadFile } from '../services/gcs'
 import { appendLog } from '../services/logs'
 
 const router = Router()
@@ -18,6 +18,10 @@ const router = Router()
 function parseHclField(hcl: string, field: string): string | null {
   const match = hcl.match(new RegExp(`^\\s*${field}\\s*=\\s*"([^"]*)"`, 'm'))
   return match ? match[1] : null
+}
+
+function agentfilePath(agentId: string, version: string): string {
+  return `agents/${agentId}/Agentfile.${version}`
 }
 
 router.get('/', async (_req, res) => {
@@ -75,7 +79,7 @@ router.post(
     const agentfileContent = content ?? `agent "${name}" {\n  version      = "${initialVersion}"\n  platform     = "${resolvedPlatform}"\n  model        = "gpt-4o"\n  instructions = ""\n}\n`
 
     try {
-      await uploadAgentfile(agent.id, initialVersion, agentfileContent)
+      await uploadFile(agentfilePath(agent.id, initialVersion), agentfileContent)
       await addAgentVersion(agent.id, initialVersion, req.user!.email ?? req.user!.uid)
     } catch (storageErr) {
       await deleteAgent(agent.id)
